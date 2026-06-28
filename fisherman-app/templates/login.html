@@ -1,0 +1,321 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JASMINE - Marine Login</title>
+
+<style>
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:'Segoe UI',sans-serif;
+}
+
+body{
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    overflow:hidden;
+    background:linear-gradient(135deg,#89f7fe,#66a6ff,#b8f2e6);
+}
+
+/* Floating Fish Animation */
+
+.fish{
+    position:absolute;
+    font-size:40px;
+    animation:swim 20s linear infinite;
+    opacity:0.8;
+}
+
+.fish:nth-child(1){
+    top:10%;
+    left:-10%;
+    animation-delay:0s;
+}
+
+.fish:nth-child(2){
+    top:35%;
+    left:-15%;
+    animation-delay:5s;
+}
+
+.fish:nth-child(3){
+    top:70%;
+    left:-20%;
+    animation-delay:10s;
+}
+
+.fish:nth-child(4){
+    top:85%;
+    left:-10%;
+    animation-delay:15s;
+}
+
+@keyframes swim{
+    from{
+        transform:translateX(-100px);
+    }
+    to{
+        transform:translateX(calc(100vw + 200px));
+    }
+}
+
+.login-card{
+    width:380px;
+    background:rgba(255,255,255,0.78);
+    backdrop-filter:blur(14px);
+    border-radius:30px;
+    padding:40px;
+    box-shadow:0 10px 35px rgba(0,0,0,0.15);
+    border:2px solid rgba(255,255,255,0.5);
+    text-align:center;
+    z-index:10;
+}
+
+.logo{
+    font-size:55px;
+    margin-bottom:10px;
+}
+
+h2{
+    color:#0077b6;
+    margin-bottom:8px;
+}
+
+.subtitle{
+    color:#555;
+    margin-bottom:28px;
+    font-size:14px;
+}
+
+.input-group{
+    text-align:left;
+    margin-bottom:18px;
+}
+
+.input-group label{
+    display:block;
+    margin-bottom:6px;
+    color:#0077b6;
+    font-size:13px;
+    font-weight:600;
+}
+
+.input-group input{
+    width:100%;
+    padding:14px;
+    border-radius:14px;
+    border:2px solid #caf0f8;
+    background:rgba(255,255,255,0.9);
+    outline:none;
+    font-size:14px;
+    transition:0.3s;
+}
+
+.input-group input:focus{
+    border-color:#00b4d8;
+    box-shadow:0 0 10px rgba(0,180,216,0.3);
+}
+
+.action-btn{
+    width:100%;
+    padding:14px;
+    border:none;
+    border-radius:14px;
+    background:linear-gradient(45deg,#00b4d8,#48cae4);
+    color:white;
+    font-size:15px;
+    font-weight:bold;
+    cursor:pointer;
+    transition:0.3s;
+}
+
+.action-btn:hover{
+    transform:translateY(-2px);
+}
+
+.toggle-link{
+    display:block;
+    margin-top:20px;
+    color:#0077b6;
+    cursor:pointer;
+    font-size:13px;
+    text-decoration:underline;
+}
+
+.error-message{
+    background:#ffe5e5;
+    color:#d90429;
+    padding:10px;
+    border-radius:12px;
+    margin-bottom:18px;
+}
+
+.success-message{
+    background:#e8ffe8;
+    color:#2b9348;
+    padding:10px;
+    border-radius:12px;
+    margin-bottom:18px;
+}
+
+.security-text{
+    margin-top:20px;
+    color:#666;
+    font-size:12px;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="fish">🐠</div>
+<div class="fish">🐟</div>
+<div class="fish">🐡</div>
+<div class="fish">🐬</div>
+
+<div class="login-card">
+
+    <div class="logo">🌊</div>
+
+    <h2>JASMINE</h2>
+
+    <p class="subtitle" id="formSubtitle">
+        Secure Marine Intelligence Portal 🔒
+    </p>
+
+    {% if error %}
+        <div class="error-message">{{ error }}</div>
+    {% endif %}
+
+    {% if success %}
+        <div class="success-message">{{ success }}</div>
+    {% endif %}
+
+    <form method="POST" action="/login">
+
+        <input type="hidden"
+               name="action"
+               id="formActionField"
+               value="login">
+
+        <div class="input-group">
+            <label id="userLabel">
+                Captain Username
+            </label>
+
+            <input type="text"
+                   name="username"
+                   placeholder="Enter username..."
+                   required
+                   autocomplete="off">
+        </div>
+
+        <div class="input-group">
+            <label>Secure Password</label>
+
+            <input type="password"
+       name="password"
+       placeholder="Enter password..."
+       required
+       pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$"
+       title="Password must contain at least 8 characters, one uppercase letter, one lowercase letter, one number, and one special character">
+        </div>
+
+        <button class="action-btn"
+                type="submit"
+                id="submitButton">
+
+            Sign In 🚢
+
+        </button>
+
+    </form>
+
+    <span class="toggle-link"
+          id="toggleViewLink"
+          onclick="toggleAuthViewMode()">
+
+          New Captain? Create Account
+
+    </span>
+
+    <div class="security-text">
+        🔒 Protected Marine Authentication System
+    </div>
+
+</div>
+
+<script>
+
+function toggleAuthViewMode(){
+
+    const actionField =
+        document.getElementById('formActionField');
+
+    const subtitle =
+        document.getElementById('formSubtitle');
+
+    const userLabel =
+        document.getElementById('userLabel');
+
+    const submitButton =
+        document.getElementById('submitButton');
+
+    const toggleLink =
+        document.getElementById('toggleViewLink');
+
+    if(actionField.value==="login"){
+
+        actionField.value="signup";
+
+        subtitle.innerText =
+        "Create Your Marine Security Account";
+
+        userLabel.innerText =
+        "Create Username";
+
+        submitButton.innerText =
+        "Create Account 🐬";
+
+        submitButton.style.background =
+        "linear-gradient(45deg,#38b000,#70e000)";
+
+        toggleLink.innerText =
+        "Already registered? Sign In";
+
+    }
+
+    else{
+
+        actionField.value="login";
+
+        subtitle.innerText =
+        "Secure Marine Intelligence Portal 🔒";
+
+        userLabel.innerText =
+        "Captain Username";
+
+        submitButton.innerText =
+        "Sign In 🚢";
+
+        submitButton.style.background =
+        "linear-gradient(45deg,#00b4d8,#48cae4)";
+
+        toggleLink.innerText =
+        "New Captain? Create Account";
+    }
+}
+
+</script>
+
+</body>
+</html>
+```

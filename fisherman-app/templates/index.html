@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jasmine - Marine & Weather Command</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-velocity/dist/leaflet-velocity.min.css" />
+    
+    <style>
+        body, html {
+            margin: 0; padding: 0; height: 100%; width: 100%;
+            background-color: #060b13;
+            font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+            overflow: hidden; display: flex; flex-direction: column;
+        }
+        .main-container {
+            display: flex; flex: 1; width: 100%; height: calc(100% - 130px); position: relative;
+        }
+        #sidebar {
+            width: 340px; background: #0f1626; border-right: 2px solid #1f2d44;
+            color: #ffffff; padding: 20px; box-sizing: border-box;
+            display: flex; flex-direction: column; z-index: 1000;
+            box-shadow: 5px 0 25px rgba(0,0,0,0.5);
+        }
+        .sidebar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+        .sidebar-header h2 { margin: 0; font-size: 20px; color: #4cc9f0; letter-spacing: 0.5px; }
+        .logout-btn { background: none; border: none; color: #ff477e; font-size: 11px; font-weight: bold; cursor: pointer; text-transform: uppercase; }
+        .logout-btn:hover { color: #ff1259; text-decoration: underline; }
+        #sidebar p { margin: 0 0 15px 0; font-size: 11px; color: #94a3b8; }
+        
+        .search-container { margin-bottom: 15px; }
+        .fleet-search {
+            width: 100%; padding: 10px 12px; background: #060b13; border: 1px solid #1f2d44;
+            border-radius: 6px; color: #fff; font-size: 13px; box-sizing: border-box; outline: none;
+        }
+        .vessel-list { flex: 1; overflow-y: auto; padding-right: 4px; }
+        .vessel-list::-webkit-scrollbar { width: 4px; }
+        .vessel-list::-webkit-scrollbar-thumb { background: #1f2d44; border-radius: 2px; }
+
+        .vessel-card {
+            background: #060b13; border: 1px solid #1f2d44; border-radius: 8px;
+            padding: 12px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s ease;
+        }
+        .vessel-card:hover { background: #131c31; border-color: #4cc9f0; transform: translateY(-1px); }
+        .vessel-card h4 { margin: 0 0 6px 0; font-size: 13px; color: #fff; display: flex; justify-content: space-between; align-items: center; }
+        
+        .meta-row { font-size: 11px; color: #94a3b8; margin-bottom: 3px; display: flex; align-items: center; gap: 4px; }
+        
+        #map { flex: 1; height: 100%; background: #070d19; position: relative; }
+        
+        /* Floating Thumbnails Menu styling */
+        .floating-layer-menu {
+            position: absolute; top: 20px; right: 20px; z-index: 1020;
+            display: flex; flex-direction: column; gap: 10px; align-items: flex-end;
+        }
+        .layer-floating-btn {
+            display: flex; align-items: center; gap: 10px; background: rgba(15, 22, 38, 0.9);
+            border: 1px solid #1f2d44; padding: 6px 14px 6px 6px; border-radius: 30px;
+            cursor: pointer; transition: all 0.2s ease; backdrop-filter: blur(8px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4); color: #94a3b8; font-size: 12px; font-weight: 500;
+            user-select: none;
+        }
+        .layer-floating-btn:hover {
+            border-color: #4cc9f0; color: #fff; transform: translateX(-3px);
+        }
+        .layer-floating-btn.active {
+            background: rgba(30, 58, 95, 0.95); border-color: #4cc9f0; color: #fff;
+            box-shadow: 0 0 12px rgba(76, 201, 240, 0.4);
+        }
+        .layer-thumb {
+            width: 36px; height: 36px; border-radius: 50%; overflow: hidden;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; border: 2px solid #1f2d44; transition: all 0.2s;
+            background: #060b13;
+        }
+        .layer-floating-btn.active .layer-thumb {
+            border-color: #4cc9f0; transform: scale(1.05);
+        }
+
+        /* Bottom Status Panel */
+        .bottom-dashboard {
+            height: 130px; width: 100%; background: #0f1626; border-top: 2px solid #1f2d44;
+            display: flex; align-items: center; justify-content: space-between; padding: 0 30px; box-sizing: border-box; z-index: 1010;
+        }
+        .legend-box {
+            background: #060b13; border: 1px solid #1f2d44; border-radius: 8px; padding: 12px; width: 260px;
+        }
+        .legend-title { color: #4cc9f0; font-size: 11px; font-weight: bold; margin-bottom: 6px; text-transform: uppercase; }
+        .gradient-bar { height: 8px; width: 100%; border-radius: 4px; background: linear-gradient(to right, #005f73, #0a9396, #94d2bd, #ee9b00, #ca6702, #ae2012); margin-bottom: 4px; }
+        .legend-labels { display: flex; justify-content: space-between; color: #94a3b8; font-size: 10px; }
+
+        .forecast-matrix {
+            background: #060b13; border: 1px solid #1f2d44; border-radius: 8px; padding: 12px; display: flex; gap: 10px; align-items: center;
+            overflow-x: auto; max-width: calc(100% - 320px);
+        }
+        .forecast-title { color: #94a3b8; font-size: 12px; margin-right: 10px; font-weight: 500; white-space: nowrap; }
+        .forecast-day {
+            background: #121b2d; border: 1px solid #1f2d44; border-radius: 6px; width: 68px; padding: 8px 0; text-align: center; color: #fff; cursor: pointer; transition: all 0.2s; flex-shrink: 0;
+        }
+        .forecast-day.active, .forecast-day:hover { background: #1e3a5f; border-color: #4cc9f0; }
+        .forecast-day div:first-child { font-size: 11px; font-weight: bold; margin-bottom: 2px; }
+        .forecast-day div:last-child { font-size: 10px; color: #94a3b8; }
+
+        .vessel-icon-container { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+        .vessel-pointed-hull {
+            width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent;
+            border-bottom: 16px solid #ff477e; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.7));
+        }
+        .gillnet-boat {
+    border-bottom-color: #00e5ff !important;
+}
+
+.trawler-boat {
+    border-bottom-color: #4cc9f0 !important;
+}
+
+.cargo-ship {
+    border-bottom-color: #ff4fa3 !important;
+}
+    </style>
+</head>
+<body>
+
+    <div class="main-container">
+        <div id="sidebar">
+            <div class="sidebar-header">
+                <h2> JASMINE</h2>
+                <button class="logout-btn" onclick="window.location.href='/logout'">█ LOGOUT</button>
+            </div>
+            <p>Live Fleet Multi-Spectrum Radar</p>
+            <div class="search-container">
+                <input type="text" id="fleetSearchInput" class="fleet-search" placeholder=" Search boat name or port..." oninput="processSearchFilter()">
+            </div>
+            <div class="vessel-list" id="vesselList"></div>
+        </div>
+
+        <div id="map">
+            <div class="floating-layer-menu">
+                <div class="layer-floating-btn" id="btn-wind" onclick="toggleMapOverlay('wind')">
+                    <div class="layer-thumb" style="background: #023e8a;">💨</div>
+                    <span>Wind Vectors</span>
+                </div>
+                <div class="layer-floating-btn active" id="btn-rainThunder" onclick="toggleMapOverlay('rainThunder')">
+                    <div class="layer-thumb" style="background: #3a0ca3;">🌧️</div>
+                    <span>Rain & Thunder</span>
+                </div>
+                
+                <div class="layer-floating-btn" id="btn-clouds" onclick="toggleMapOverlay('clouds')">
+                    <div class="layer-thumb" style="background: #6c757d;">☁️</div>
+                    <span>Cloud Covers</span>
+                </div>
+                <div class="layer-floating-btn" id="btn-currents" onclick="toggleMapOverlay('currents')">
+                    <div class="layer-thumb" style="background: #1d3557;">🌀</div>
+                    <span>Ocean Currents</span>
+                </div>
+                <hr style="width: 100%; border: 0; border-top: 1px solid #1f2d44; margin: 4px 0;">
+                <div class="layer-floating-btn active" id="btn-fleet" onclick="toggleMapOverlay('fleet')">
+                    <div class="layer-thumb" style="background: #131c31;">🚢</div>
+                    <span>Show Active Boats</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bottom-dashboard">
+        <div class="legend-box">
+    <div class="legend-title">🌍 METEOROLOGICAL INTENSITY SCALE</div>
+
+    <div class="gradient-bar" id="gradientBar"></div>
+
+    <div class="legend-labels">
+        <span id="scaleLow">Low / Calm</span>
+        <span id="scaleMid">Moderate</span>
+        <span id="scaleHigh">High / Severe</span>
+    </div>
+</div>
+
+        <div class="forecast-matrix" id="forecastMatrixContainer">
+            <span class="forecast-title">📊 Live Global Matrix</span>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-velocity@2.1.4/dist/leaflet-velocity.min.js"></script>
+    <script src="https://unpkg.com/leaflet-velocity/dist/leaflet-velocity.min.js"></script>
+    <script>
+        const map = L.map('map', { maxZoom: 10, minZoom: 2, zoomControl: true }).setView([13.0, 80.0], 4);
+
+        const darkBasemap = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { 
+            attribution: '&copy; CARTO',
+            zIndex: 1
+        }).addTo(map);
+
+        let layerStatus = {
+            wind: true,
+            rainThunder: false,
+            clouds: false,
+            currents: false,
+            fleet: true
+        };
+
+        let mapLayers = { wind: null, rainThunder: null,  clouds: null, currents: null };
+        const fleetLayerGroup = L.layerGroup().addTo(map);
+
+        let layerDefinitions = {
+    rainThunder: {
+        url: 'https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=6149a050bb61d2f5571286e6c511d356',
+        opacity: 0.7
+    },
+
+    clouds: {
+        url: 'https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=6149a050bb61d2f5571286e6c511d356',
+        opacity: 0.7
+    },
+
+    
+
+    currents: {
+        url: 'https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=6149a050bb61d2f5571286e6c511d356',
+        opacity: 0.5
+    }
+};
+
+        // ========================================================================
+        // 💨 FULLY CORRECTED LIVE WINDFIELD GENERATOR (INDIAN OCEAN COVERAGE)
+        // ========================================================================
+        function loadLiveWindStreamOverlay() {
+
+    fetch('https://raw.githubusercontent.com/danwild/leaflet-velocity/master/demo/wind-global.json')
+        .then(response => response.json())
+        .then(data => {
+
+            if (mapLayers.wind) {
+                map.removeLayer(mapLayers.wind);
+            }
+
+            mapLayers.wind = L.velocityLayer({
+                displayValues: true,
+                displayOptions: {
+                    velocityType: "Live Wind",
+                    position: "bottomleft",
+                    speedUnit: "kt"
+                },
+
+                data: data,
+
+                maxVelocity: 15,
+                velocityScale: 0.005,
+                particleAge: 90,
+                particleMultiplier: 1 / 300,
+                lineWidth: 2,
+
+                colorScale: [
+                    "#005f73",
+                    "#0a9396",
+                    "#4cc9f0",
+                    "#ee9b00",
+                    "#ae2012"
+                ]
+            });
+
+            if (layerStatus.wind) {
+                mapLayers.wind.addTo(map);
+            }
+        })
+        .catch(err => console.log("Wind Error:", err));
+}
+
+        function syncLiveRadarTimestamps() {
+            fetch('https://api.rainviewer.com/apps/radar-maps/api/v2/maps')
+                .then(res => res.json())
+                .then(timestamps => {
+                    if (timestamps && timestamps.length > 0) {
+                        const latestTime = timestamps[timestamps.length - 1];
+                        layerDefinitions.rainThunder.url = `https://tilecache.rainviewer.com/v2/radar/${latestTime}/256/{z}/{x}/{y}/2/1_1.png`;
+                        updateWeatherPredictionEngine();
+                    }
+                })
+                .catch(err => {
+                    console.warn("RainViewer fallback applied:", err);
+                    updateWeatherPredictionEngine();
+                });
+        }
+
+        function updateWeatherPredictionEngine() {
+            Object.keys(layerDefinitions).forEach(key => {
+                if (mapLayers[key]) {
+                    map.removeLayer(mapLayers[key]);
+                }
+
+                mapLayers[key] = L.tileLayer(layerDefinitions[key].url, {
+                    maxZoom: 10,
+                    opacity: layerDefinitions[key].opacity,
+                    zIndex: 100
+                });
+
+                if (layerStatus[key]) {
+                    mapLayers[key].addTo(map);
+                    if(typeof mapLayers[key].bringToFront === 'function') {
+                        mapLayers[key].bringToFront();
+                    }
+                }
+            });
+
+            if (layerStatus.wind && mapLayers.wind && !map.hasLayer(mapLayers.wind)) {
+                mapLayers.wind.addTo(map);
+            }
+        }
+
+        function toggleMapOverlay(layerKey) {
+            layerStatus[layerKey] = !layerStatus[layerKey];
+            const targetBtn = document.getElementById(`btn-${layerKey}`);
+
+            if (layerStatus[layerKey]) {
+                targetBtn.classList.add('active');
+                if (layerKey !== 'fleet') {
+    updateIntensityScale(layerKey);
+}
+                if (layerKey === 'fleet') {
+                    fleetLayerGroup.addTo(map);
+                } else if (layerKey === 'wind') {
+                    if (mapLayers.wind) {
+                        mapLayers.wind.addTo(map);
+                    } else {
+                        loadLiveWindStreamOverlay();
+                    }
+                } else if (mapLayers[layerKey]) {
+                    mapLayers[layerKey].addTo(map);
+                    if(typeof mapLayers[layerKey].bringToFront === 'function') {
+                        mapLayers[layerKey].bringToFront();
+                    }
+                }
+            } else {
+                targetBtn.classList.remove('active');
+                if (layerKey === 'fleet') {
+                    map.removeLayer(fleetLayerGroup);
+                } else if (layerKey === 'wind') {
+                    if (mapLayers.wind) map.removeLayer(mapLayers.wind);
+                } else if (mapLayers[layerKey]) {
+                    map.removeLayer(mapLayers[layerKey]);
+                }
+            }
+        }
+
+        let selectedForecastLocation = null;
+let selectedForecastPopup = null;
+        function generateTenDayTimeline() {
+            const container = document.getElementById('forecastMatrixContainer');
+            const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            
+            let today = new Date();
+            
+            for (let i = 0; i < 10; i++) {
+                let targetDate = new Date();
+                targetDate.setDate(today.getDate() + i);
+                
+                const dayName = daysOfWeek[targetDate.getDay()];
+                const dayNum = targetDate.getDate();
+                const monthName = months[targetDate.getMonth()];
+                
+                const dayButton = document.createElement('div');
+                dayButton.className = `forecast-day ${i === 0 ? 'active' : ''}`;
+                dayButton.onclick = function() {
+
+    document.querySelectorAll('.forecast-day')
+        .forEach(el => el.classList.remove('active'));
+
+    dayButton.classList.add('active');
+
+    updateWeatherPredictionEngine();
+
+    if (selectedForecastLocation && selectedForecastPopup) {
+
+        const lat = selectedForecastLocation.lat;
+        const lon = selectedForecastLocation.lon;
+
+        fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=6149a050bb61d2f5571286e6c511d356&units=metric`)
+            .then(res => res.json())
+            .then(data => {
+
+                if (i >= 5) {
+
+    selectedForecastPopup.setContent(`
+        <div style="color:black; min-width:220px;">
+            <h4>📍 Selected Location</h4>
+
+            <b>Latitude:</b> ${lat}<br>
+            <b>Longitude:</b> ${lon}<br><br>
+
+            <b>📅 Forecast:</b> ${dayName} ${dayNum} ${monthName}<br><br>
+
+            <h4 style="color:#2563eb;">🔄 Future Update</h4>
+
+            <b>Detailed forecast for Days 6–10</b><br>
+            will be available in a future version.
+        </div>
+    `);
+
+    return;
+}
+                const forecast = data.list[Math.min(i * 8, data.list.length - 1)];
+
+                const windSpeed = (forecast.wind.speed * 1.94384).toFixed(1);
+                const windDeg = forecast.wind.deg;
+
+                let direction = "N ↑";
+
+                if (windDeg >= 22.5 && windDeg < 67.5) direction = "NE ↗";
+                else if (windDeg >= 67.5 && windDeg < 112.5) direction = "E →";
+                else if (windDeg >= 112.5 && windDeg < 157.5) direction = "SE ↘";
+                else if (windDeg >= 157.5 && windDeg < 202.5) direction = "S ↓";
+                else if (windDeg >= 202.5 && windDeg < 247.5) direction = "SW ↙";
+                else if (windDeg >= 247.5 && windDeg < 292.5) direction = "W ←";
+                else if (windDeg >= 292.5 && windDeg < 337.5) direction = "NW ↖";
+
+                selectedForecastPopup.setContent(`
+                    <div style="color:black; min-width:220px;">
+                        <h4>📍 Selected Location</h4>
+
+                        <b>Latitude:</b> ${lat}<br>
+                        <b>Longitude:</b> ${lon}<br><br>
+
+                        <b>📅 Forecast:</b> ${dayName} ${dayNum} ${monthName}<br><br>
+
+                        <b>🌡 Temperature:</b> ${forecast.main.temp} °C<br>
+                        <b>☁ Weather:</b> ${forecast.weather[0].description}<br>
+                        <b>💨 Wind Speed:</b> ${windSpeed} kn<br>
+                        <b>🧭 Wind Direction:</b> ${direction}
+                    </div>
+                `);
+            });
+    }
+};
+                
+                dayButton.innerHTML = `<div>${dayName} ${dayNum}</div><div>${monthName}</div>`;
+                container.appendChild(dayButton);
+            }
+        }
+
+        let syncedVesselData = []; 
+
+       function fetchFleetFromPython() {
+    fetch('/api/fleet')
+        .then(res => res.json())
+        .then(data => {
+            syncedVesselData = data;
+            renderMapAndSidebarElements();
+        })
+        .catch(err => console.error("Communication sync line breaking:", err));
+}
+                
+
+        function renderMapAndSidebarElements() {
+            fleetLayerGroup.clearLayers();
+            const listContainer = document.getElementById("vesselList");
+            if (!listContainer) return;
+            listContainer.innerHTML = "";
+            
+            const searchQuery = document.getElementById("fleetSearchInput").value.toLowerCase().trim();
+
+          
+            syncedVesselData.forEach(vessel => {
+                if (searchQuery !== "") {
+                    const matchName = vessel.name.toLowerCase().includes(searchQuery);
+                    const matchPort = vessel.homePort.toLowerCase().includes(searchQuery);
+                    if (!matchName && !matchPort) return;
+                }
+
+                
+                const isGillnet = vessel.type === "Gillnet Boat";
+const isTrawler = vessel.type === "Trawler Boat";
+const isShip = !isGillnet && !isTrawler;
+
+           
+
+const vesselClass = '';
+
+const customShipIcon = L.divIcon({
+    html: `<div class="vessel-icon-container" style="transform: rotate(${vessel.heading}deg);">
+              <div class="vessel-pointed-hull ${vesselClass}"></div>
+           </div>`,
+    className: '',
+    iconSize: [24, 24],
+    iconAnchor: [12, 12]
+});
+
+                const marker = L.marker([vessel.lat, vessel.lon], { icon: customShipIcon });
+                if (layerStatus.fleet) { marker.addTo(fleetLayerGroup); }
+                
+                marker.bindPopup(`
+    <div id="popup-${vessel.name.replace(/\s+/g,'')}"
+         style="color: #000; font-family: sans-serif; font-size:12px;">
+
+        <h4 style="margin:0 0 4px 0;">🚢 ${vessel.name}</h4>
+
+        <b>Type:</b> ${vessel.type}<br>
+        <b>Home Port:</b> ${vessel.homePort}<br>
+        <b>Ship Speed:</b> ${vessel.speedKnots} kn<br><br>
+
+        <b>🌬 Wind Speed:</b> Loading...<br>
+        <b>🧭 Wind Direction:</b> Loading...<br><br>
+
+        <b>🌀 Current Speed:</b> Coming Soon<br>
+        <b>🧭 Current Direction:</b> Coming Soon
+    </div>
+`);
+marker.on('popupopen', function () {
+
+    console.log(vessel.lat, vessel.lon);
+
+const popupId = `popup-${vessel.name.replace(/\s+/g,'')}`;
+
+fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${vessel.lat}&lon=${vessel.lon}&appid=6149a050bb61d2f5571286e6c511d356&units=metric`)
+        .then(res => res.json())
+        .then(data => {
+
+            console.log(data);
+
+            const windSpeed = (data.wind.speed * 1.94384).toFixed(1);
+            const windDeg = data.wind.deg;
+
+            let direction = "N";
+
+            if (windDeg >= 22.5 && windDeg < 67.5) direction = "NE ↗";
+            else if (windDeg >= 67.5 && windDeg < 112.5) direction = "E →";
+            else if (windDeg >= 112.5 && windDeg < 157.5) direction = "SE ↘";
+            else if (windDeg >= 157.5 && windDeg < 202.5) direction = "S ↓";
+            else if (windDeg >= 202.5 && windDeg < 247.5) direction = "SW ↙";
+            else if (windDeg >= 247.5 && windDeg < 292.5) direction = "W ←";
+            else if (windDeg >= 292.5 && windDeg < 337.5) direction = "NW ↖";
+
+            document.getElementById(popupId).innerHTML = `
+                <h4 style="margin:0 0 4px 0;">🚢 ${vessel.name}</h4>
+
+                <b>Type:</b> ${vessel.type}<br>
+                <b>Home Port:</b> ${vessel.homePort}<br>
+                <b>Ship Speed:</b> ${vessel.speedKnots} kn<br><br>
+
+                <b>🌬 Wind Speed:</b> ${windSpeed} kn<br>
+                <b>🧭 Wind Direction:</b> ${direction}<br><br>
+
+                <b>🌀 Current Speed:</b> Coming Soon<br>
+                <b>🧭 Current Direction:</b> Coming Soon
+            `;
+        });
+});
+                const card = document.createElement("div");
+card.className = "vessel-card";
+
+if (isGillnet)
+    card.style.borderLeft = "4px solid #4cc9f0";
+else if (isTrawler)
+    card.style.borderLeft = "4px solid #00b4d8";
+else
+    card.style.borderLeft = "4px solid #ff477e";
+
+card.innerHTML = `
+    <div>
+        <h4>
+            <span>🚢 ${vessel.name}</span>
+            <span style="color:#4cc9f0;">${vessel.speedKnots} kn</span>
+        </h4>
+
+        <div class="meta-row">
+            ⚙️ <b>Type:</b> ${vessel.type}
+        </div>
+
+        <div class="meta-row"
+             style="color:#4cc9f0; font-weight:500; margin-top:5px;">
+            📍 <b>Belongs to:</b> ${vessel.homePort}
+        </div>
+    </div>
+`;
+                
+                card.onclick = () => { 
+                    map.flyTo([vessel.lat, vessel.lon], 6); 
+                    marker.openPopup(); 
+                };
+                listContainer.appendChild(card);
+            });
+        }
+function updateIntensityScale(type) {
+
+    const low = document.getElementById("scaleLow");
+    const mid = document.getElementById("scaleMid");
+    const high = document.getElementById("scaleHigh");
+    const bar = document.getElementById("gradientBar");
+
+    if (!low || !mid || !high || !bar) return;
+
+    switch(type) {
+
+        case 'wind':
+            low.innerText = "Calm";
+            mid.innerText = "Moderate";
+            high.innerText = "Storm";
+
+            bar.style.background =
+                "linear-gradient(to right, #0066ff, #00ffff, #ffff00, #ff0000)";
+            break;
+
+        case 'rainThunder':
+            low.innerText = "Light";
+            mid.innerText = "Moderate";
+            high.innerText = "Heavy";
+
+            bar.style.background =
+                "linear-gradient(to right, #7dd3fc, #2563eb, #7e22ce)";
+            break;
+
+        case 'clouds':
+            low.innerText = "Clear";
+            mid.innerText = "Cloudy";
+            high.innerText = "Overcast";
+
+            bar.style.background =
+                "linear-gradient(to right, #e5e7eb, #9ca3af, #374151)";
+            break;
+
+        
+
+        case 'currents':
+            low.innerText = "Weak";
+            mid.innerText = "Moderate";
+            high.innerText = "Strong";
+
+            bar.style.background =
+                "linear-gradient(to right, #22c55e, #eab308, #ef4444)";
+            break;
+
+        default:
+            low.innerText = "Low / Calm";
+            mid.innerText = "Moderate";
+            high.innerText = "High / Severe";
+
+            bar.style.background =
+                "linear-gradient(to right, #005f73, #0a9396, #94d2bd, #ee9b00, #ca6702, #ae2012)";
+    }
+}
+        function processSearchFilter() { 
+            renderMapAndSidebarElements(); 
+        }
+map.on('click', function(e) {
+
+    const lat = e.latlng.lat.toFixed(2);
+    const lon = e.latlng.lng.toFixed(2);
+    selectedForecastLocation = {
+    lat: lat,
+    lon: lon
+};
+
+    fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=6149a050bb61d2f5571286e6c511d356&units=metric`)
+        .then(res => res.json())
+        .then(data => {
+
+            const windDeg = data.wind.deg || 0;
+
+let windDirection = "N ↑";
+
+if (windDeg >= 22.5 && windDeg < 67.5) windDirection = "NE ↗";
+else if (windDeg >= 67.5 && windDeg < 112.5) windDirection = "E →";
+else if (windDeg >= 112.5 && windDeg < 157.5) windDirection = "SE ↘";
+else if (windDeg >= 157.5 && windDeg < 202.5) windDirection = "S ↓";
+else if (windDeg >= 202.5 && windDeg < 247.5) windDirection = "SW ↙";
+else if (windDeg >= 247.5 && windDeg < 292.5) windDirection = "W ←";
+else if (windDeg >= 292.5 && windDeg < 337.5) windDirection = "NW ↖";
+
+const popupContent = `
+    <div style="color:black; min-width:220px;">
+        <h4>📍 Selected Location</h4>
+
+        <b>Latitude:</b> ${lat}<br>
+        <b>Longitude:</b> ${lon}<br><br>
+
+        <b>🌡 Temperature:</b> ${data.main.temp} °C<br>
+        <b>☁ Weather:</b> ${data.weather[0].description}<br>
+        <b>💨 Wind Speed:</b> ${(data.wind.speed * 1.94384).toFixed(1)} kn<br>
+        <b>🧭 Wind Direction:</b> ${windDirection}<br><br>
+
+        <b>🌀 Ocean Current:</b> Coming Soon<br>
+        <b>🧭 Current Direction:</b> Coming Soon
+    </div>
+`;
+
+            selectedForecastPopup = L.popup()
+    .setLatLng(e.latlng)
+    .setContent(popupContent)
+    .openOn(map);
+        });
+});
+       window.onload = function() {
+    generateTenDayTimeline();
+    syncLiveRadarTimestamps();
+    loadLiveWindStreamOverlay();
+    fetchFleetFromPython();
+
+    updateIntensityScale('rainThunder');
+};
+    </script>
+</body>
+</html>
